@@ -82,7 +82,7 @@ const authService = {
 
   async registrarUsuario(dados) {
     try {
-      const { nome, email, senha, tipo } = dados
+      const { nome, email, senha } = dados
 
       const usuarioExistente = await Usuario.findOne({ where: { email } })
       if (usuarioExistente) {
@@ -95,7 +95,7 @@ const authService = {
         nome,
         email,
         senhaHash,
-        tipo
+        tipo: "admin",
       })
 
       const token = gerarToken({ id: usuario.id, email: usuario.email })
