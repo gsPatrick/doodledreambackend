@@ -7,7 +7,6 @@ require('dotenv').config();
 const { sequelize } = require("./config/database");
 const tratarErros = require("./middleware/tratarErros");
 const swaggerUi = require('swagger-ui-express');
-
 const path = require("path");
 
 // Importar todas as suas rotas
@@ -34,31 +33,66 @@ const subscriptionRoutes = require("./routes/subscriptionRoutes");
 
 const app = express();
 
-// Middleware de segurança
+// --- LOGGING MIDDLEWARE ---
+// Adicionado no topo para logar cada requisição recebida.
+// Isso é útil para depurar problemas de CORS e 502.
+app.use((req, res, next) => {
+  console.log(`[INCOMING REQUEST] Method: ${req.method}, URL: ${req.originalUrl}, Origin: ${req.headers.origin}`);
+  next();
+});
+
+// --- CONFIGURAÇÃO DE CORS ROBUSTA ---
+const allowedOrigins = [
+  'http://localhost:5173', // Frontend em desenvolvimento
+  'http://localhost:3000', // Outra porta comum
+  'https://doodledreams.jvitor.tech' // ADICIONE A URL DO SEU FRONTEND EM PRODUÇÃO AQUI
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Permite requisições sem 'origin' (ex: Postman) ou se a origem estiver na lista branca.
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.error(`[CORS] Bloqueado: A origem ${origin} não é permitida.`);
+      callback(new Error('A sua origem não tem permissão para acessar este recurso.'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true
+};
+
+// --- ORDEM DOS MIDDLEWARES (MUITO IMPORTANTE) ---
+
+// 1. Habilita a resposta para a requisição preflight (OPTIONS) ANTES de qualquer outra rota.
+// Isso resolve a maioria dos problemas de CORS com requisições complexas (que usam 'Authorization').
+app.options('*', cors(corsOptions));
+
+// 2. Aplica o middleware CORS para todas as outras requisições.
+app.use(cors(corsOptions));
+
+// 3. Outros middlewares de segurança
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
+app.set('trust proxy', 1); // Essencial para funcionar atrás de um proxy como o do Easypanel
 
-// --- CONFIGURAÇÃO DE CORS ABERTA ---
-// Permite requisições de qualquer origem, com quaisquer métodos e cabeçalhos.
-// Ideal para desenvolvimento e depuração.
-app.use(cors());
-
-// Rate limiting
+// 4. Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 500, // Limite de 500 requisições por IP a cada 15 minutos
+  max: 500, // máximo de 500 requisições por IP a cada 15 minutos
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use(limiter);
 
-// Middleware para parsing do corpo da requisição
-app.use(express.json({ limit: "500mb" }));
-app.use(express.urlencoded({ extended: true, limit: "500mb" }));
-app.set('trust proxy', 1);
+// 5. Parsing do corpo da requisição
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Definição das Rotas da API
+// --- ROTAS DA APLICAÇÃO ---
+// Suas rotas vêm DEPOIS de toda a configuração de CORS e segurança
 app.use("/api/auth", authRoutes);
 app.use("/api/produtos", produtoRoutes);
 app.use("/api/pedidos", pedidoRoutes);
@@ -80,31 +114,31 @@ app.use("/api/cep", viaCepRoutes);
 app.use("/api/relatorios", relatorioRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 
-// Servir arquivos estáticos da pasta 'uploads'
+// Servir arquivos estáticos da pasta uploads
 app.use("/uploads", express.static("uploads"));
 
-// Rota raiz de teste
+// Rota de teste
 app.get("/", (req, res) => {
-  res.json({ message: "API Doodle Dreams funcionando!" });
+  res.json({ message: "API Ecommerce funcionando com CORS configurado!" });
 });
 
-// Configurar Swagger UI para documentação
+// Configurar Swagger UI (serve documentação pré-gerada)
 const swaggerFile = require('./swagger-output.json');
 app.use('/doc', swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
-// Middleware de tratamento de erros (deve ser o último middleware)
+// Middleware de tratamento de erros (deve ser o último middleware a ser usado)
 app.use(tratarErros);
 
 const PORT = process.env.PORT || 3001;
 
-// Inicialização do servidor
+// Inicializar servidor
 async function iniciarServidor() {
   try {
     await sequelize.authenticate();
     console.clear();
     console.log("Conexão com banco de dados estabelecida com sucesso.");
 
-    await sequelize.sync();
+    await sequelize.sync({ alter: true }); // 'alter: true' é útil em desenvolvimento, mas use migrações em produção.
     console.log("Modelos sincronizados com o banco de dados.");
 
     app.listen(PORT, () => {
@@ -116,5 +150,5 @@ async function iniciarServidor() {
   }
 }
 
-// Iniciar o servidor
+// Iniciar servidor
 iniciarServidor();
