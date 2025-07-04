@@ -1,11 +1,10 @@
 const express = require("express")
 const carrinhoController = require("../controllers/carrinhoController")
-const { verifyToken } = require("../middleware/auth")
 
 const router = express.Router()
 
 // Todas as rotas de carrinho requerem autenticação
-router.use(verifyToken)
+
 
 router.get("/", carrinhoController.obterCarrinho)
 router.post("/adicionar", carrinhoController.adicionarAoCarrinho)
