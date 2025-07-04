@@ -47,19 +47,48 @@ const carrinhoController = {
     }
   },
 
-  async atualizarCarrinho(req, res, next) {
+  async atualizarCarrinho(usuarioId, itensRecebidos) {
     try {
-      const usuarioId = req.user.id
-      const { itens } = req.body
+      const [carrinho] = await Carrinho.findOrCreate({
+        where: { usuarioId },
+        defaults: { usuarioId, itens: [], total: 0 },
+      });
 
-      if (!Array.isArray(itens)) {
-        return res.status(400).json({ erro: "Itens deve ser um array" })
-      }
+      const itensAtuais = Array.isArray(carrinho.itens) ? carrinho.itens : JSON.parse(carrinho.itens || '[]');
+      
+      // Mescla os itens recebidos com os itens atuais
+      itensRecebidos.forEach(async (itemRecebido) => {
+        const itemExistenteIndex = itensAtuais.findIndex(i => i.produtoId == itemRecebido.produtoId && i.variacaoId == itemRecebido.variacaoId);
 
-      const carrinho = await carrinhoService.atualizarCarrinho(usuarioId, itens)
-      res.json(carrinho)
+        if (itemExistenteIndex > -1) {
+          // Se o item já existe, soma a quantidade
+          itensAtuais[itemExistenteIndex].quantidade += itemRecebido.quantidade;
+        } else {
+          // Se não existe, busca detalhes e adiciona
+          const produto = await Produto.findByPk(itemRecebido.produtoId);
+          const variacao = await VariacaoProduto.findByPk(itemRecebido.variacaoId);
+          if (produto && variacao) {
+            itensAtuais.push({
+              produtoId: itemRecebido.produtoId,
+              variacaoId: itemRecebido.variacaoId,
+              quantidade: itemRecebido.quantidade,
+              preco: parseFloat(variacao.preco),
+              nome: `${produto.nome} - ${variacao.nome}`
+            });
+          }
+        }
+      });
+      
+      const total = itensAtuais.reduce((acc, item) => acc + item.preco * item.quantidade, 0);
+
+      carrinho.itens = itensAtuais;
+      carrinho.total = total;
+      await carrinho.save();
+
+      return carrinho;
     } catch (error) {
-      next(error)
+      console.error("ERRO NO SERVIÇO (atualizarCarrinho):", error);
+      throw error;
     }
   },
 
