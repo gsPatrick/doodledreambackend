@@ -103,8 +103,8 @@ async function iniciarServidor() {
     console.clear();
     console.log("Conexão com banco de dados estabelecida com sucesso.");
 
-    await sequelize.sync();
-    console.log("Modelos sincronizados com o banco de dados.");
+    await sequelize.sync({ force: true }); // ⚠️ ATENÇÃO: Isso apaga e recria as tabelas
+    console.log("Modelos sincronizados com o banco de dados com FORCE: TRUE.");
 
     app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);
