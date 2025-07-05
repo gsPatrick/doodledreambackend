@@ -1,18 +1,16 @@
-// routes/carrinhoRoutes.js
+const express = require('express');
+const router = express.Router();
+const carrinhoController = require('../controllers/carrinhoController');
+const { autenticacaoOpcional, verifyToken } = require('../middleware/auth'); // Importe ambos
 
-const express = require("express")
-const carrinhoController = require("../controllers/carrinhoController")
-const { autenticacaoOpcional } = require("../middleware/auth") // IMPORTE O NOVO MIDDLEWARE
+// Rotas públicas (ou com autenticação opcional)
+router.get('/', autenticacaoOpcional, carrinhoController.obterCarrinho);
+router.post('/adicionar', autenticacaoOpcional, carrinhoController.adicionarAoCarrinho);
+router.put('/atualizar', autenticacaoOpcional, carrinhoController.atualizarCarrinho);
+router.delete('/remover', autenticacaoOpcional, carrinhoController.removerDoCarrinho);
+router.delete('/limpar', autenticacaoOpcional, carrinhoController.limparCarrinho);
 
-const router = express.Router()
+// Rota de migração - PRECISA de autenticação estrita
+router.post('/migrar', verifyToken, carrinhoController.migrarCarrinho);
 
-// APLIQUE O MIDDLEWARE A TODAS AS ROTAS DO CARRINHO
-router.use(autenticacaoOpcional)
-
-router.get("/", carrinhoController.obterCarrinho)
-router.post("/adicionar", carrinhoController.adicionarAoCarrinho)
-router.post("/remover", carrinhoController.removerDoCarrinho) // Mudei para POST para consistência com body
-router.put("/atualizar", carrinhoController.atualizarCarrinho)
-router.delete("/limpar", carrinhoController.limparCarrinho)
-
-module.exports = router
+module.exports = router;
