@@ -5,6 +5,29 @@ const config = require('../config/config');
 /**
  * Middleware para verificar token JWT
  */
+
+const autenticacaoOpcional = async (req, res, next) => {
+  try {
+    const authHeader = req.header("Authorization")
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "")
+      const decoded = verificarToken(token)
+      const usuario = await Usuario.findByPk(decoded.id)
+
+      if (usuario) {
+        // Adiciona o usuário à requisição se o token for válido
+        req.user = usuario.toJSON()
+      }
+    }
+  } catch (error) {
+    // Se o token for inválido, apenas ignoramos e continuamos como visitante
+    // Não é necessário fazer nada aqui.
+  } finally {
+    // Continua para a próxima rota, com ou sem req.user
+    next()
+  }
+}
+
 const verifyToken = async (req, res, next) => {
     try {
         // Pegar o token do header
@@ -57,5 +80,6 @@ const isAdmin = (req, res, next) => {
 
 module.exports = {
     verifyToken,
+    autenticacaoOpcional ,
     isAdmin
 }; 

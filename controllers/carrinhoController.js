@@ -1,20 +1,36 @@
+// controllers/carrinhoController.js
+
 const carrinhoService = require("../services/carrinhoService")
+
+// Função helper para obter o identificador
+const getIdentificador = (req) => {
+  if (req.user && req.user.id) {
+    return req.user.id.toString() // ID do usuário logado
+  }
+  if (req.body.sessionId) {
+    return req.body.sessionId // ID da sessão do visitante
+  }
+  if (req.query.sessionId) {
+    return req.query.sessionId
+  }
+  return null
+}
 
 const carrinhoController = {
   async adicionarAoCarrinho(req, res, next) {
     try {
-      const usuarioId = req.user.id
+      const identificadorSessao = getIdentificador(req)
       const { produtoId, quantidade, variacaoId } = req.body
 
+      if (!identificadorSessao) {
+        return res.status(400).json({ erro: "Identificador de sessão é obrigatório para visitantes." })
+      }
       if (!produtoId || !quantidade) {
         return res.status(400).json({ erro: "Produto ID e quantidade são obrigatórios" })
       }
 
-      if (quantidade <= 0) {
-        return res.status(400).json({ erro: "Quantidade deve ser maior que zero" })
-      }
-
-      const carrinho = await carrinhoService.adicionarAoCarrinho(usuarioId, produtoId, quantidade, variacaoId)
+      const usuarioId = req.user ? req.user.id : null
+      const carrinho = await carrinhoService.adicionarAoCarrinho(identificadorSessao, usuarioId, produtoId, quantidade, variacaoId)
       res.json(carrinho)
     } catch (error) {
       next(error)
@@ -23,14 +39,17 @@ const carrinhoController = {
 
   async removerDoCarrinho(req, res, next) {
     try {
-      const usuarioId = req.user.id
+      const identificadorSessao = getIdentificador(req)
       const { produtoId, variacaoId } = req.body
 
+      if (!identificadorSessao) {
+        return res.status(400).json({ erro: "Identificador de sessão é obrigatório para visitantes." })
+      }
       if (!produtoId) {
         return res.status(400).json({ erro: "Produto ID é obrigatório" })
       }
 
-      const carrinho = await carrinhoService.removerDoCarrinho(usuarioId, produtoId, variacaoId)
+      const carrinho = await carrinhoService.removerDoCarrinho(identificadorSessao, produtoId, variacaoId)
       res.json(carrinho)
     } catch (error) {
       next(error)
@@ -39,63 +58,46 @@ const carrinhoController = {
 
   async obterCarrinho(req, res, next) {
     try {
-      const usuarioId = req.user.id
-      const carrinho = await carrinhoService.obterCarrinho(usuarioId)
+      // Para obter o carrinho, o sessionId pode vir como query param
+      const identificadorSessao = getIdentificador(req)
+
+      if (!identificadorSessao) {
+        // Se não há usuário logado nem sessionId, retorna um carrinho vazio
+        return res.json({ identificadorSessao: null, itens: [], total: 0 });
+      }
+
+      const carrinho = await carrinhoService.obterCarrinho(identificadorSessao)
       res.json(carrinho)
     } catch (error) {
       next(error)
     }
   },
-
-  async atualizarCarrinho(usuarioId, itensRecebidos) {
+  
+  async atualizarCarrinho(req, res, next) {
     try {
-      const [carrinho] = await Carrinho.findOrCreate({
-        where: { usuarioId },
-        defaults: { usuarioId, itens: [], total: 0 },
-      });
+      const identificadorSessao = getIdentificador(req);
+      const { itens } = req.body;
+      const usuarioId = req.user ? req.user.id : null;
 
-      const itensAtuais = Array.isArray(carrinho.itens) ? carrinho.itens : JSON.parse(carrinho.itens || '[]');
-      
-      // Mescla os itens recebidos com os itens atuais
-      itensRecebidos.forEach(async (itemRecebido) => {
-        const itemExistenteIndex = itensAtuais.findIndex(i => i.produtoId == itemRecebido.produtoId && i.variacaoId == itemRecebido.variacaoId);
+      if (!identificadorSessao) {
+        return res.status(400).json({ erro: "Identificador de sessão é obrigatório para visitantes." });
+      }
 
-        if (itemExistenteIndex > -1) {
-          // Se o item já existe, soma a quantidade
-          itensAtuais[itemExistenteIndex].quantidade += itemRecebido.quantidade;
-        } else {
-          // Se não existe, busca detalhes e adiciona
-          const produto = await Produto.findByPk(itemRecebido.produtoId);
-          const variacao = await VariacaoProduto.findByPk(itemRecebido.variacaoId);
-          if (produto && variacao) {
-            itensAtuais.push({
-              produtoId: itemRecebido.produtoId,
-              variacaoId: itemRecebido.variacaoId,
-              quantidade: itemRecebido.quantidade,
-              preco: parseFloat(variacao.preco),
-              nome: `${produto.nome} - ${variacao.nome}`
-            });
-          }
-        }
-      });
-      
-      const total = itensAtuais.reduce((acc, item) => acc + item.preco * item.quantidade, 0);
-
-      carrinho.itens = itensAtuais;
-      carrinho.total = total;
-      await carrinho.save();
-
-      return carrinho;
+      const carrinho = await carrinhoService.atualizarCarrinho(identificadorSessao, usuarioId, itens);
+      res.json(carrinho);
     } catch (error) {
-      console.error("ERRO NO SERVIÇO (atualizarCarrinho):", error);
-      throw error;
+      next(error);
     }
   },
 
   async limparCarrinho(req, res, next) {
     try {
-      const usuarioId = req.user.id
-      const carrinho = await carrinhoService.limparCarrinho(usuarioId)
+      const identificadorSessao = getIdentificador(req)
+      if (!identificadorSessao) {
+        return res.status(400).json({ erro: "Identificador de sessão é obrigatório para visitantes." })
+      }
+
+      const carrinho = await carrinhoService.limparCarrinho(identificadorSessao)
       res.json(carrinho)
     } catch (error) {
       next(error)

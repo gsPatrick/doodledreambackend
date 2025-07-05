@@ -1,3 +1,5 @@
+// models/Carrinho.js
+
 const { DataTypes } = require("sequelize")
 const { sequelize } = require("../config/database")
 
@@ -9,13 +11,11 @@ const Carrinho = sequelize.define(
       primaryKey: true,
       autoIncrement: true,
     },
-    usuarioId: {
-      type: DataTypes.INTEGER,
+    // MUITO IMPORTANTE: MUDANÇA AQUI
+    identificadorSessao: {
+      type: DataTypes.STRING, // Mudamos para STRING para aceitar UUIDs de visitantes
       allowNull: false,
-      references: {
-        model: "usuarios",
-        key: "id",
-      },
+      unique: true, // Cada sessão/usuário tem um único carrinho
     },
     itens: {
       type: DataTypes.JSON,
@@ -25,6 +25,16 @@ const Carrinho = sequelize.define(
       type: DataTypes.DECIMAL(10, 2),
       defaultValue: 0,
     },
+    // Opcional: manter o vínculo se o usuário estiver logado
+    usuarioId: {
+        type: DataTypes.INTEGER,
+        allowNull: true, // Permite nulo para visitantes
+        references: {
+            model: "usuarios",
+            key: "id",
+        },
+        onDelete: 'SET NULL' // Se o usuário for deletado, o carrinho pode permanecer
+    }
   },
   {
     tableName: "carrinhos",

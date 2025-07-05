@@ -1,16 +1,18 @@
+// routes/carrinhoRoutes.js
+
 const express = require("express")
-const categoriaController = require("../controllers/categoriaController")
-const { verifyToken, isAdmin } = require("../middleware/auth")
+const carrinhoController = require("../controllers/carrinhoController")
+const { autenticacaoOpcional } = require("../middleware/auth") // IMPORTE O NOVO MIDDLEWARE
 
 const router = express.Router()
 
-// Rotas públicas
-router.get("/", categoriaController.listarCategorias)
-router.get("/:id", categoriaController.buscarCategoria)
+// APLIQUE O MIDDLEWARE A TODAS AS ROTAS DO CARRINHO
+router.use(autenticacaoOpcional)
 
-// Rotas administrativas
-router.post("/", verifyToken, isAdmin, categoriaController.criarCategoria)
-router.put("/:id", verifyToken, isAdmin, categoriaController.atualizarCategoria)
-router.delete("/:id", verifyToken, isAdmin, categoriaController.removerCategoria)
+router.get("/", carrinhoController.obterCarrinho)
+router.post("/adicionar", carrinhoController.adicionarAoCarrinho)
+router.post("/remover", carrinhoController.removerDoCarrinho) // Mudei para POST para consistência com body
+router.put("/atualizar", carrinhoController.atualizarCarrinho)
+router.delete("/limpar", carrinhoController.limparCarrinho)
 
-module.exports = router 
+module.exports = router

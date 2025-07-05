@@ -1,7 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
 require('dotenv').config();
 
 const { sequelize } = require("./config/database");
@@ -53,15 +52,6 @@ app.options('*', (req, res) => {
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 500,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(limiter);
 
 // Parsing de JSON
 app.use(express.json({ limit: "500mb" }));
